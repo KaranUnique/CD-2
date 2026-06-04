@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CryptoDesk — Live News + Telegram</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F4F1EA;--bg2:#EBE8E0;--surface:#FFF;--border:#D6D1C4;--border2:#B8B2A5;
+  --text:#18160F;--text2:#4A4640;--text3:#7A756E;
+  --accent:#C8390A;--blue:#0A4F8A;--gold:#B8880A;--green:#1A7A42;--tg:#0088CC;
+  --ss:0 1px 2px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.04);
+  --sm:0 2px 4px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.07);
+  --r:4px;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans',sans-serif;
+  --serif:'Playfair Display',serif
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+
+/* ── HEADER ── */
+header{background:var(--surface);border-bottom:2px solid var(--text);height:50px;display:flex;align-items:center;padding:0 24px;gap:16px;position:sticky;top:0;z-index:200;box-shadow:var(--ss)}
+.logo{display:flex;align-items:baseline;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-name{font-family:var(--serif);font-weight:900;font-size:21px;letter-spacing:-.3px;color:var(--text)}
+.logo-tag{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);border:1px solid var(--border2);padding:2px 7px;border-radius:2px}
+.hdiv{width:1px;height:24px;background:var(--border);flex-shrink:0}
+.hstats{display:flex;gap:20px;flex:1}
+.hstat{display:flex;align-items:baseline;gap:4px;font-family:var(--mono);font-size:11px;color:var(--text3)}
+.hstat-n{font-size:14px;font-weight:500;color:var(--text)}
+.hstat-n.blue{color:var(--blue)}.hstat-n.red{color:var(--accent)}.hstat-n.grn{color:var(--green)}.hstat-n.tg{color:var(--tg)}
+.hright{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.btn{font-family:var(--sans);font-size:12px;font-weight:500;padding:6px 13px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.btn:hover{background:var(--bg2);border-color:var(--text);color:var(--text)}
+.btn.primary{background:var(--text);color:var(--surface);border-color:var(--text)}
+.btn.primary:hover{background:#333}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.auto-badge{font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:2px;border:1px solid var(--border2);color:var(--text3);cursor:pointer;transition:all .15s;user-select:none}
+.auto-badge.on{background:#EAF9F1;border-color:#1A7A42;color:#1A7A42}
+
+/* ── CONFIG MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:var(--sm);width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column;transform:translateY(10px);transition:transform .2s}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-title{font-family:var(--serif);font-size:18px;font-weight:700}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);padding:0 4px;line-height:1}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:16px}
+.modal-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0}
+.field-label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px}
+.field-hint{font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:8px;line-height:1.6}
+.field-input{width:100%;font-family:var(--mono);font-size:12px;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;outline:none;transition:border-color .15s}
+.field-input:focus{border-color:var(--text)}
+.field-input.shake{animation:shake .3s ease;border-color:var(--accent)}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+/* ── LAYOUT ── */
+.layout{display:flex;min-height:calc(100vh - 50px)}
+.sidebar{width:220px;flex-shrink:0;border-right:1px solid var(--border);background:var(--surface);padding:18px 0;position:sticky;top:50px;height:calc(100vh - 50px);overflow-y:auto}
+.sb-section{padding:0 14px 14px;border-bottom:1px solid var(--border);margin-bottom:14px}
+.sb-section:last-child{border-bottom:none;margin-bottom:0}
+.sb-title{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;padding-bottom:7px;border-bottom:1px solid var(--border)}
+.filt-btn{width:100%;display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r);border:none;background:none;font-family:var(--sans);font-size:13px;color:var(--text2);cursor:pointer;transition:all .12s;margin-bottom:2px;text-align:left}
+.filt-btn:hover{background:var(--bg);color:var(--text)}
+.filt-btn.active{background:var(--bg2);color:var(--text);font-weight:500}
+.filt-icon{margin-right:6px;font-size:12px}
+.filt-count{font-family:var(--mono);font-size:10px;color:var(--text3);background:var(--bg2);padding:1px 6px;border-radius:10px}
+.src-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:var(--r);cursor:pointer;transition:background .12s;margin-bottom:2px}
+.src-item:hover{background:var(--bg)}
+.src-color{width:3px;height:30px;border-radius:2px;flex-shrink:0}
+.src-info{flex:1;min-width:0}
+.src-name{font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.src-cnt{font-family:var(--mono);font-size:10px;color:var(--text3)}
+.src-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.topic-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r);font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:background .12s;margin-bottom:2px}
+.topic-item:hover{background:var(--bg);color:var(--text)}
+.topic-item.active{background:var(--bg2);color:var(--text)}
+
+/* ── CONTENT ── */
+.content{flex:1;min-width:0;padding:22px 24px}
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.search-wrap{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:7px 12px;flex:1;max-width:320px;transition:border-color .15s}
+.search-wrap:focus-within{border-color:var(--text)}
+.search-wrap input{border:none;outline:none;font-family:var(--sans);font-size:13px;color:var(--text);background:transparent;width:100%}
+.search-wrap input::placeholder{color:var(--text3)}
+.sort-sel{font-family:var(--mono);font-size:11px;color:var(--text2);background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;cursor:pointer;outline:none}
+.view-tog{display:flex;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:2px;gap:2px}
+.view-btn{background:none;border:none;padding:5px 9px;border-radius:2px;cursor:pointer;font-size:13px;color:var(--text3);transition:all .12s}
+.view-btn.active{background:var(--surface);color:var(--text);box-shadow:var(--ss)}
+.update-bar{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 14px;margin-bottom:16px;font-family:var(--mono);font-size:11px;color:var(--text3)}
+.update-bar b{color:var(--text);font-weight:500}
+.live-badge{display:inline-flex;align-items:center;gap:5px;background:#EAF9F1;border:1px solid #1A7A42;color:#1A7A42;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.5px;padding:2px 8px;border-radius:2px;text-transform:uppercase}
+.live-dot{width:6px;height:6px;border-radius:50%;background:#1A7A42;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── API BANNER ── */
+.api-banner{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:9px 14px;margin-bottom:16px;font-family:var(--mono);font-size:11px;color:var(--text3);line-height:1.5}
+.api-banner.error{background:#FFF5F5;border-color:#F5CACA;color:var(--accent)}
+.api-banner.ok{background:#F5FFF8;border-color:#A8DFBC;color:var(--green)}
+.api-banner.loading{background:#FFFCF0;border-color:#E8D88A;color:var(--gold)}
+.api-banner a{color:inherit;font-weight:600;text-decoration:underline;cursor:pointer}
+
+/* ── SECTION DIVIDERS ── */
+.section-header{display:flex;align-items:center;gap:12px;margin:28px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+.section-header:first-child{margin-top:0}
+.section-title{font-family:var(--serif);font-size:17px;font-weight:700;color:var(--text)}
+.section-badge{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:2px}
+.section-badge.sheets{background:#E8F5E9;color:var(--green);border:1px solid #A8DFBC}
+.section-badge.tg{background:#E1F4FF;color:var(--tg);border:1px solid #b3dff0}
+.tg-notice{font-family:var(--mono);font-size:10px;color:var(--text3);background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 13px;margin-bottom:12px;line-height:1.6}
+.tg-notice a{color:var(--tg);text-decoration:none}.tg-notice a:hover{text-decoration:underline}
+
+/* ── GRIDS ── */
+.feeds-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.feeds-grid.list-view{grid-template-columns:1fr}
+.tg-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
+.tg-grid.list-view{grid-template-columns:1fr}
+@media(max-width:1600px){.tg-grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:1400px){.feeds-grid{grid-template-columns:repeat(3,1fr)}.tg-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:1050px){.feeds-grid{grid-template-columns:repeat(2,1fr)}.tg-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:720px){.feeds-grid,.tg-grid{grid-template-columns:1fr}}
+
+/* ── CARDS ── */
+.feed-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--ss);transition:box-shadow .2s,opacity .3s;display:flex;flex-direction:column;animation:fadeUp .3s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.feed-card:hover{box-shadow:var(--sm)}
+.feed-card.loading{opacity:.55}
+.feed-card.tg-card{border-left:3px solid var(--tg)}
+.card-head{padding:10px 13px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.card-color{width:3px;height:26px;border-radius:2px;flex-shrink:0}
+.card-favicon{width:14px;height:14px;border-radius:2px;flex-shrink:0;object-fit:contain}
+.card-name{font-weight:600;font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-meta{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.pill-type{font-family:var(--mono);font-size:8px;font-weight:500;padding:2px 6px;border-radius:2px;text-transform:uppercase;background:#E8F0FE;color:var(--blue)}
+.pill-live{background:#EAF9F1 !important;color:#1A7A42 !important}
+.pill-sheets{background:#E8F5E9 !important;color:var(--green) !important}
+.pill-tg{background:#E1F4FF !important;color:var(--tg) !important;border:1px solid #b3dff0}
+.pill-loading{background:#FFF8E1 !important;color:#B8880A !important;animation:blink .8s ease-in-out infinite}
+.pill-error{background:#FFF0F0 !important;color:var(--accent) !important}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.card-cnt{font-family:var(--mono);font-size:10px;color:var(--text3)}
+.tg-info-bar{display:flex;align-items:center;gap:6px;padding:5px 13px;background:#F0FAFF;border-bottom:1px solid #D0EEF8;font-family:var(--mono);font-size:9px;color:var(--tg)}
+.tg-info-bar a{color:var(--tg);text-decoration:none;font-weight:500}.tg-info-bar a:hover{text-decoration:underline}
+.news-list-inner{flex:1;overflow-y:auto;max-height:280px}
+.news-list-inner::-webkit-scrollbar{width:3px}
+.news-list-inner::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.news-item{display:block;padding:9px 13px;border-bottom:1px solid var(--bg2);text-decoration:none;color:inherit;transition:background .1s}
+.news-item:last-child{border-bottom:none}
+.news-item:hover{background:var(--bg)}
+.news-item.is-new{background:#F5FAFF}
+.news-item.tg-msg{background:#FAFEFF}
+.news-item.tg-msg:hover{background:#F0FAFF}
+.ni-title{font-size:13px;font-weight:400;line-height:1.45;color:var(--text);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.ni-desc{font-size:11px;color:var(--text3);line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin-top:2px}
+.ni-time{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:3px}
+.tg-views{font-family:var(--mono);font-size:9px;color:var(--tg);margin-top:2px}
+.feed-empty{padding:28px 13px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text3);line-height:1.7}
+.card-foot{padding:6px 13px;border-top:1px solid var(--bg2);display:flex;justify-content:space-between;align-items:center}
+.card-updated{font-family:var(--mono);font-size:9px;color:var(--text3)}
+.card-foot-btns{display:flex;gap:10px;align-items:center}
+.card-action-btn{font-family:var(--mono);font-size:9px;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline}
+.card-action-btn.blue{color:var(--blue)}.card-action-btn.blue:hover{color:var(--text)}
+.card-action-btn.tgbtn{color:var(--tg)}.card-action-btn.tgbtn:hover{color:var(--text)}
+.card-action-btn:disabled{opacity:.4;cursor:not-allowed;text-decoration:none}
+
+/* ── SKELETON ── */
+.skeleton{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:3px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+@media(max-width:768px){.sidebar{display:none}.content{padding:14px}header{padding:0 14px;gap:10px}.hstats{display:none}}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <a class="logo" href="#"><span class="logo-name">CryptoDesk</span><span class="logo-tag">Sheets + TG</span></a>
+  <div class="hdiv"></div>
+  <div class="hstats">
+    <div class="hstat"><span class="hstat-n" id="hTotal">–</span>&nbsp;articles</div>
+    <div class="hstat"><span class="hstat-n blue" id="hNew">–</span>&nbsp;new (1h)</div>
+    <div class="hstat"><span class="hstat-n red" id="hAlerts">–</span>&nbsp;alerts</div>
+    <div class="hstat"><span class="hstat-n grn" id="hSrc">–</span>&nbsp;RSS</div>
+    <div class="hstat"><span class="hstat-n tg" id="hTgSrc">–</span>&nbsp;TG ch.</div>
+  </div>
+  <div class="hright">
+    <span class="auto-badge" id="autoBadge" onclick="toggleAuto()">Auto ▸ Off</span>
+    <button class="btn" onclick="openConfig()">⚙ Config</button>
+    <button class="btn primary" id="refreshAllBtn" onclick="refreshAll()">↻ Refresh All</button>
+  </div>
+</header>
+
+<!-- ── CONFIG MODAL ── -->
+<div class="modal-overlay" id="configModal" onclick="if(event.target===this)closeConfig()">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">API Configuration</span>
+      <button class="modal-close" onclick="closeConfig()">×</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <div class="field-label">Apps Script Web App URL</div>
+        <div class="field-hint">
+          Your deployed Google Apps Script endpoint.<br>
+          Format: https://script.google.com/macros/s/YOUR_ID/exec
+        </div>
+        <input class="field-input" type="text" id="apiUrlInput"
+               placeholder="https://script.google.com/macros/s/.../exec" />
+      </div>
+      <div>
+        <div class="field-label">Auto-refresh interval</div>
+        <div class="field-hint">How often to sync RSS from Sheets (minutes).</div>
+        <select class="field-input" id="intervalInput" style="cursor:pointer">
+          <option value="2">2 minutes</option>
+          <option value="5" selected>5 minutes</option>
+          <option value="10">10 minutes</option>
+          <option value="30">30 minutes</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeConfig()">Cancel</button>
+      <button class="btn primary" onclick="saveConfig()">Save &amp; Reload</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── LAYOUT ── -->
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sb-section">
+      <div class="sb-title">Filter</div>
+      <button class="filt-btn active" id="fAll"   onclick="setFilter('all',this)"><span><span class="filt-icon">🌐</span>All Articles</span><span class="filt-count" id="fc-all">–</span></button>
+      <button class="filt-btn"        id="fNew"   onclick="setFilter('new',this)"><span><span class="filt-icon">🔵</span>New (1h)</span><span class="filt-count" id="fc-new">–</span></button>
+      <button class="filt-btn"        id="fAlert" onclick="setFilter('alert',this)"><span><span class="filt-icon">🔴</span>Alerts</span><span class="filt-count" id="fc-alert">–</span></button>
+      <button class="filt-btn"        id="fTg"    onclick="setFilter('tg',this)"><span><span class="filt-icon">✈</span>Telegram</span><span class="filt-count" id="fc-tg">–</span></button>
+    </div>
+    <div class="sb-section"><div class="sb-title">Topics</div><div id="sbTopics"></div></div>
+    <div class="sb-section"><div class="sb-title">RSS Sources</div><div id="sbSources"></div></div>
+    <div class="sb-section"><div class="sb-title">Telegram</div><div id="sbTgSources"></div></div>
+  </aside>
+
+  <div class="content">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="#7A756E" stroke-width="1.5"/><path d="M10.5 10.5L14 14" stroke="#7A756E" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <input type="text" id="searchInput" placeholder="Search headlines…" oninput="renderAll()">
+      </div>
+      <select class="sort-sel" id="sortSel" onchange="renderAll()">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+      </select>
+      <div class="view-tog">
+        <button class="view-btn active" id="vGrid" onclick="setView('grid')">⊞</button>
+        <button class="view-btn"        id="vList" onclick="setView('list')">☰</button>
+      </div>
+    </div>
+
+    <div id="apiBanner" class="api-banner loading">⟳ Connecting to Google Sheets API…</div>
+
+    <div class="update-bar">
+      <span>Last updated: <b id="lastUpdatedLabel">–</b></span>
+      <span id="liveBadgeWrap"></span>
+    </div>
+
+    <div id="mainContent"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+//  CryptoDesk Frontend
+//  RSS  → Google Apps Script → Google Sheets → Sheets Web API → this page
+//  TG   → Public t.me/s/ web previews → proxy race → parsed client-side
+//          (Telegram has no server-side API without a bot token, so the
+//           original proxy-racing approach is kept intact for TG only)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── RSS SOURCE META (colors / favicons — data comes from Sheets API) ──────────
+const SOURCE_META = {
+  'CoinTelegraph'  : { color:'#C8390A', domain:'cointelegraph.com'  },
+  'CoinDesk'       : { color:'#0A4F8A', domain:'coindesk.com'       },
+  'Decrypt'        : { color:'#1A7A42', domain:'decrypt.co'         },
+  'Crypto Briefing': { color:'#B8880A', domain:'cryptobriefing.com' },
+  'Bitcoin News'   : { color:'#8A2A8A', domain:'news.bitcoin.com'   },
+};
+
+// ── TELEGRAM CHANNELS (client-side scraping via public web previews) ──────────
+const TG_SOURCES = [
+  {id:'tg_wue', name:'Wu Blockchain EN', handle:'wublockchainenglish',       url:'https://t.me/s/wublockchainenglish',       color:'#0088CC', emoji:'📡'},
+  {id:'tg_cmc', name:'CoinMarketCap',    handle:'CoinMarketCapAnnouncements',url:'https://t.me/s/CoinMarketCapAnnouncements',color:'#3861FB', emoji:'📊'},
+  {id:'tg_cdf', name:'CryptoDiffer',     handle:'cryptodiffer',              url:'https://t.me/s/cryptodiffer',              color:'#8E44AD', emoji:'🔍'},
+  {id:'tg_pnx', name:'PNXGRP',          handle:'pnxgrp',                    url:'https://t.me/s/pnxgrp',                    color:'#16A085', emoji:'💹'},
+  {id:'tg_cdp', name:'CryptoDep',       handle:'cryptodep',                 url:'https://t.me/s/cryptodep',                 color:'#2C3E50', emoji:'📈'},
+  {id:'tg_wg',  name:'Watcher Guru',    handle:'WatcherGuru',               url:'https://t.me/s/WatcherGuru',               color:'#1A7A42', emoji:'👁'},
+  {id:'tg_ori', name:'Oriole Insights', handle:'OrioleInsights',            url:'https://t.me/s/OrioleInsights',            color:'#C0392B', emoji:'🦜'},
+  {id:'tg_icd', name:'ICO Drops',       handle:'icodrops',                  url:'https://t.me/s/icodrops',                  color:'#D4AC0D', emoji:'💎'},
+  {id:'tg_alt', name:'Altcoin Alerts',  handle:'Altcoin_Alerts',            url:'https://t.me/s/Altcoin_Alerts',            color:'#E74C3C', emoji:'🚨'},
+];
+
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const ALERT_KW = ['hack','exploit','sec','arrest','crash','breach','seized','bankrupt','rug','fraud'];
+const HACK_KW  = ['hack','exploit','breach','attack','steal','drain','compromise'];
+const FUND_KW  = ['fund','raise','invest','million','billion','round','capital','vc'];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let allArticles    = [];   // RSS articles from Sheets API (flat array)
+let tgBySource     = {};   // { [tg_id]: [{title,url,ts,views,_fp},...] }
+let tgUpdatedAt    = {};
+let tgLive         = {};
+let tgFetchingSet  = new Set();
+
+let lastFetchedAt  = null;
+let apiOnline      = false;
+let isFetchingRSS  = false;
+
+let curFilter  = 'all';
+let curView    = 'grid';
+let curTopic   = null;
+let autoHandle = null;
+let autoOn     = false;
+
+// ── CONFIG PERSISTENCE ────────────────────────────────────────────────────────
+function getApiUrl()         { return localStorage.getItem('cd_api_url') || ''; }
+function saveApiUrl(u)       { localStorage.setItem('cd_api_url', u.trim()); }
+function getInterval()       { return parseInt(localStorage.getItem('cd_interval') || '5', 10); }
+function saveInterval(v)     { localStorage.setItem('cd_interval', String(v)); }
+
+// ── RSS: FETCH FROM SHEETS API ────────────────────────────────────────────────
+async function loadFromAPI() {
+  const apiUrl = getApiUrl();
+  if (!apiUrl) {
+    setBanner('error','⚙ No API URL set. Click <a onclick="openConfig()">⚙ Config</a> to add your Apps Script Web App URL.');
+    return;
+  }
+  if (isFetchingRSS) return;
+  isFetchingRSS = true;
+
+  const btn = document.getElementById('refreshAllBtn');
+  btn.disabled = true; btn.textContent = '↻ Fetching…';
+  setBanner('loading','⟳ Fetching from Google Sheets API…');
+
+  try {
+    const res  = await fetch(`${apiUrl}?limit=500`, { signal: AbortSignal.timeout(20000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (json.status !== 'ok') throw new Error(json.message || 'API error');
+
+    allArticles   = json.articles || [];
+    lastFetchedAt = new Date();
+    apiOnline     = true;
+
+    setBanner('ok', `✓ ${allArticles.length} RSS articles from Google Sheets · ${lastFetchedAt.toLocaleTimeString()}`);
+    updateLastUpdatedLabel();
+    renderAll();
+  } catch (err) {
+    apiOnline = false;
+    console.error('[RSS API]', err);
+    setBanner('error', `✗ ${err.message} — <a onclick="openConfig()">Check URL</a> or retry.`);
+    if (allArticles.length) renderAll();
+  } finally {
+    isFetchingRSS = false;
+    btn.disabled = false; btn.textContent = '↻ Refresh All';
+  }
+}
+
+// ── TELEGRAM: PROXY-RACE FETCHER ──────────────────────────────────────────────
+// Telegram's public channel web previews (t.me/s/<handle>) cannot be fetched
+// directly due to browser CORS restrictions, so we race several public CORS
+// proxies and use whichever responds first — same strategy as the original.
+
+function makeTgProxies(url) {
+  const enc = encodeURIComponent(url);
+  return [
+    async () => {
+      const r = await fetch(`https://api.allorigins.win/get?url=${enc}`,{signal:AbortSignal.timeout(10000)});
+      if(!r.ok) throw new Error('allorigins '+r.status);
+      const j = await r.json();
+      if(!j.contents||j.contents.length<500) throw new Error('allorigins empty');
+      return j.contents;
+    },
+    async () => {
+      const r = await fetch(`https://corsproxy.io/?${enc}`,{signal:AbortSignal.timeout(10000)});
+      if(!r.ok) throw new Error('corsproxy '+r.status);
+      const t = await r.text();
+      if(t.length<500) throw new Error('corsproxy empty');
+      return t;
+    },
+    async () => {
+      const r = await fetch(`https://thingproxy.freeboard.io/fetch/${url}`,{signal:AbortSignal.timeout(10000)});
+      if(!r.ok) throw new Error('thingproxy '+r.status);
+      const t = await r.text();
+      if(t.length<500) throw new Error('thingproxy empty');
+      return t;
+    },
+    async () => {
+      const r = await fetch(`https://api.codetabs.com/v1/proxy?quest=${enc}`,{signal:AbortSignal.timeout(10000)});
+      if(!r.ok) throw new Error('codetabs '+r.status);
+      const t = await r.text();
+      if(t.length<500) throw new Error('codetabs empty');
+      return t;
+    },
+  ];
+}
+
+function parseTelegramPage(html, src) {
+  const doc  = new DOMParser().parseFromString(html,'text/html');
+  const seen = new Set();
+  const msgs = [];
+
+  const wraps = doc.querySelectorAll(
+    '.tgme_widget_message_wrap,.tgme_widget_message,.js-widget_message'
+  );
+
+  wraps.forEach(wrap => {
+    // ── Extract text ──
+    let text = '';
+    for (const sel of [
+      '.tgme_widget_message_text',
+      '.tgme_widget_message_text.js-message_text',
+      '.tgme_widget_message_bubble .tgme_widget_message_text',
+    ]) {
+      const el = wrap.querySelector(sel);
+      if (el) {
+        text = el.innerHTML
+          .replace(/<br\s*\/?>/gi,' ')
+          .replace(/<[^>]+>/g,'')
+          .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&nbsp;/g,' ')
+          .replace(/\s+/g,' ').trim();
+        if (text.length >= 8) break;
+      }
+    }
+    if (!text) {
+      const fwd = wrap.querySelector('.tgme_widget_message_forwarded_from,.tgme_widget_message_reply');
+      if (fwd) text = fwd.textContent.replace(/\s+/g,' ').trim();
+    }
+    if (!text || text.length < 8) return;
+
+    // ── Dedup ──
+    const fp = text.substring(0,60).toLowerCase().replace(/\s/g,'');
+    if (seen.has(fp)) return;
+    seen.add(fp);
+
+    const display = text.length > 220 ? text.substring(0,217)+'…' : text;
+
+    // ── Permalink ──
+    let msgUrl = `https://t.me/${src.handle}`;
+    const linkEl = wrap.querySelector(
+      `a.tgme_widget_message_date,.tgme_widget_message_date>a,a[href*="t.me/${src.handle}"]`
+    );
+    if (linkEl?.href) msgUrl = linkEl.href.replace(/^https?:\/\/[^/]*/,'https://t.me');
+
+    // ── Timestamp ──
+    let ts = 0;
+    const timeEl = wrap.querySelector('time[datetime]');
+    if (timeEl) { const d = new Date(timeEl.getAttribute('datetime')); if(!isNaN(d)) ts = d.getTime(); }
+    if (!ts) {
+      const pa = (wrap.getAttribute('data-post')||wrap.closest('[data-post]')?.getAttribute('data-post'));
+      if (pa) { const id=parseInt(pa.split('/').pop()); if(id) ts=id*1000; }
+    }
+
+    // ── Views ──
+    const viewsEl = wrap.querySelector('.tgme_widget_message_views');
+    msgs.push({ title:display, url:msgUrl, ts, views:viewsEl?viewsEl.textContent.trim():'', cat:'Telegram', _fp:fp });
+  });
+
+  return msgs;
+}
+
+async function fetchTelegram(src) {
+  if (tgFetchingSet.has(src.id)) return;
+  tgFetchingSet.add(src.id);
+  setTgCardLoading(src.id, true);
+
+  let html = null;
+  try {
+    html = await Promise.any(makeTgProxies(src.url).map(fn => fn()));
+  } catch(_) {
+    for (const fn of makeTgProxies(src.url)) {
+      try { html = await fn(); break; } catch(e) { console.warn('[TG fallback]',src.handle,e.message); }
+    }
+  }
+
+  if (html) {
+    try {
+      const fresh = parseTelegramPage(html, src);
+      if (fresh.length > 0) {
+        const existing    = tgBySource[src.id] || [];
+        const existingFps = new Set(existing.map(m => m._fp));
+        const merged = [...fresh.filter(m => !existingFps.has(m._fp)), ...existing];
+        merged.sort((a,b) => b.ts - a.ts);
+        tgBySource[src.id] = merged.slice(0,60);
+        tgUpdatedAt[src.id] = Date.now();
+        tgLive[src.id]      = true;
+      } else {
+        if (!tgBySource[src.id]) tgBySource[src.id] = [];
+      }
+    } catch(e) {
+      console.error('[TG parse]',src.handle,e);
+      if (!tgBySource[src.id]) tgBySource[src.id] = [];
+    }
+  } else {
+    if (!tgBySource[src.id]) tgBySource[src.id] = [];
+    // Auto-retry once after 15s if still empty
+    setTimeout(() => { if (!(tgBySource[src.id]||[]).length) fetchTelegram(src); }, 15000);
+  }
+
+  tgFetchingSet.delete(src.id);
+  setTgCardLoading(src.id, false);
+  updateLastUpdatedLabel();
+  renderAll();
+}
+
+function setTgCardLoading(id, on) {
+  const card = document.getElementById('card-'+id);
+  if (card) card.classList.toggle('loading', on);
+  const pill = document.getElementById('pill-'+id);
+  if (pill) {
+    if (on) { pill.className='pill-type pill-loading'; pill.textContent='FETCHING'; }
+    else    { pill.className='pill-type pill-tg'+(tgLive[id]?' pill-live':''); pill.textContent=tgLive[id]?'LIVE':'TG'; }
+  }
+  const btn = document.getElementById('rfbtn-'+id);
+  if (btn) { btn.disabled=on; btn.textContent=on?'⟳ …':'↻ Refresh'; }
+}
+
+// ── REFRESH ALL ───────────────────────────────────────────────────────────────
+async function refreshAll() {
+  await Promise.allSettled([
+    loadFromAPI(),
+    ...TG_SOURCES.map(s => fetchTelegram(s)),
+  ]);
+}
+
+// ── AUTO REFRESH ──────────────────────────────────────────────────────────────
+function toggleAuto() {
+  autoOn = !autoOn;
+  const b = document.getElementById('autoBadge');
+  if (autoOn) {
+    const mins = getInterval();
+    b.textContent = `Auto ▸ ${mins}m`; b.classList.add('on');
+    autoHandle = setInterval(refreshAll, mins * 60 * 1000);
+    refreshAll();
+  } else {
+    b.textContent = 'Auto ▸ Off'; b.classList.remove('on');
+    clearInterval(autoHandle);
+  }
+}
+
+// ── BANNER ────────────────────────────────────────────────────────────────────
+function setBanner(type, html) {
+  const el = document.getElementById('apiBanner');
+  el.className = `api-banner ${type}`;
+  el.innerHTML = html;
+}
+
+// ── CONFIG MODAL ──────────────────────────────────────────────────────────────
+function openConfig() {
+  document.getElementById('apiUrlInput').value = getApiUrl();
+  document.getElementById('intervalInput').value = String(getInterval());
+  document.getElementById('configModal').classList.add('open');
+}
+function closeConfig() { document.getElementById('configModal').classList.remove('open'); }
+function saveConfig() {
+  const url = document.getElementById('apiUrlInput').value.trim();
+  const iv  = parseInt(document.getElementById('intervalInput').value, 10);
+  if (!url) {
+    const inp = document.getElementById('apiUrlInput');
+    inp.classList.add('shake');
+    setTimeout(() => inp.classList.remove('shake'), 400);
+    return;
+  }
+  saveApiUrl(url);
+  saveInterval(iv);
+  // Restart auto-refresh if running
+  if (autoOn) { clearInterval(autoHandle); autoHandle = setInterval(refreshAll, iv*60000); }
+  closeConfig();
+  loadFromAPI();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function fmtTime(tsOrIso) {
+  if (!tsOrIso) return '';
+  const date = typeof tsOrIso === 'number' ? new Date(tsOrIso) : new Date(tsOrIso);
+  if (isNaN(date)) return '';
+  const diff = (Date.now() - date) / 1000;
+  if (diff < 60)    return Math.floor(diff)+'s ago';
+  if (diff < 3600)  return Math.floor(diff/60)+'m ago';
+  if (diff < 86400) return date.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  return date.toLocaleDateString([],{month:'short',day:'numeric'});
+}
+
+function updateLastUpdatedLabel() {
+  const times = [
+    ...(lastFetchedAt ? [lastFetchedAt.getTime()] : []),
+    ...Object.values(tgUpdatedAt).filter(Boolean),
+  ];
+  const label = document.getElementById('lastUpdatedLabel');
+  if (times.length) {
+    label.textContent = new Date(Math.max(...times)).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+  const anyLive = apiOnline || Object.values(tgLive).some(Boolean);
+  document.getElementById('liveBadgeWrap').innerHTML = anyLive
+    ? '<span class="live-badge"><span class="live-dot"></span>Live</span>' : '';
+}
+
+function srcMeta(name) { return SOURCE_META[name] || {color:'#666',domain:''}; }
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function renderAll() {
+  const search       = document.getElementById('searchInput').value.toLowerCase().trim();
+  const sort         = document.getElementById('sortSel').value;
+  const oneHourAgoMs = Date.now() - 3_600_000;
+  const oneHourAgoISO= new Date(oneHourAgoMs).toISOString();
+
+  // ── Group RSS by source ───────────────────────────────────────────────────
+  const bySource = {};
+  allArticles.forEach(a => { if(!bySource[a.source]) bySource[a.source]=[]; bySource[a.source].push(a); });
+  const rssSources = [...new Set(allArticles.map(a => a.source))];
+
+  // ── Global counts ─────────────────────────────────────────────────────────
+  let totAll=0, totNew=0, totAlert=0, totTg=0;
+  allArticles.forEach(a => {
+    totAll++;
+    if (a.pubDate > oneHourAgoISO) totNew++;
+    if (ALERT_KW.some(k => a.title.toLowerCase().includes(k))) totAlert++;
+  });
+  TG_SOURCES.forEach(s => { totTg += (tgBySource[s.id]||[]).length; });
+
+  // ── Article filter helper ─────────────────────────────────────────────────
+  function filterRSS(arr) {
+    let a = arr.slice();
+    if (search)              a = a.filter(x => x.title.toLowerCase().includes(search)||x.description.toLowerCase().includes(search));
+    if (curFilter==='new')   a = a.filter(x => x.pubDate > oneHourAgoISO);
+    if (curFilter==='alert') a = a.filter(x => ALERT_KW.some(k=>x.title.toLowerCase().includes(k)));
+    if (curTopic==='hacks')  a = a.filter(x => HACK_KW.some(k=>x.title.toLowerCase().includes(k)));
+    if (curTopic==='funding')a = a.filter(x => FUND_KW.some(k=>x.title.toLowerCase().includes(k)));
+    return sort==='oldest' ? a.sort((x,y)=>x.pubDate<y.pubDate?-1:1) : a.sort((x,y)=>x.pubDate>y.pubDate?-1:1);
+  }
+  function filterTG(arr) {
+    let a = arr.slice();
+    if (search)              a = a.filter(x => x.title.toLowerCase().includes(search));
+    if (curTopic==='hacks')  a = a.filter(x => HACK_KW.some(k=>x.title.toLowerCase().includes(k)));
+    if (curTopic==='funding')a = a.filter(x => FUND_KW.some(k=>x.title.toLowerCase().includes(k)));
+    return sort==='oldest' ? a.sort((x,y)=>x.ts-y.ts) : a.sort((x,y)=>y.ts-x.ts);
+  }
+
+  // ── Build DOM ─────────────────────────────────────────────────────────────
+  const main    = document.getElementById('mainContent');
+  const frag    = document.createDocumentFragment();
+  const gridCls = 'feeds-grid'+(curView==='list'?' list-view':'');
+  const tgCls   = 'tg-grid'+(curView==='list'?' list-view':'');
+
+  const showRSS = curFilter !== 'tg';
+  const showTG  = curFilter !== 'new' && curFilter !== 'alert';
+
+  // ── RSS SECTION ──
+  if (showRSS) {
+    const sh = document.createElement('div'); sh.className='section-header';
+    sh.innerHTML='<span class="section-title">RSS Feeds</span><span class="section-badge sheets">GOOGLE SHEETS</span>';
+    frag.appendChild(sh);
+
+    const grid = document.createElement('div'); grid.className = gridCls;
+    if (!rssSources.length) {
+      // Skeleton cards while waiting
+      for(let i=0;i<5;i++) grid.appendChild(buildSkeletonCard_(i));
+    } else {
+      rssSources.forEach((name, si) => {
+        grid.appendChild(buildRSSCard_(name, filterRSS(bySource[name]||[]), si));
+      });
+    }
+    frag.appendChild(grid);
+  }
+
+  // ── TELEGRAM SECTION ──
+  if (showTG) {
+    const th = document.createElement('div'); th.className='section-header';
+    th.innerHTML='<span style="color:var(--tg);font-size:14px">✈</span><span class="section-title">Telegram Channels</span><span class="section-badge tg">LIVE</span>';
+    frag.appendChild(th);
+
+    const notice = document.createElement('div'); notice.className='tg-notice';
+    notice.innerHTML=`<b>ℹ Telegram feeds</b> — scraped from public channel web previews via parallel proxy racing (fastest proxy wins).
+    New posts merge with existing ones — no duplicates. Click <b>↻ Refresh</b> on any card or use <b>Auto</b> for periodic sync.`;
+    frag.appendChild(notice);
+
+    const tgGrid = document.createElement('div'); tgGrid.className = tgCls;
+    TG_SOURCES.forEach((src, si) => {
+      tgGrid.appendChild(buildTGCard_(src, filterTG(tgBySource[src.id]||[]), rssSources.length+si));
+    });
+    frag.appendChild(tgGrid);
+  }
+
+  main.innerHTML=''; main.appendChild(frag);
+
+  // ── Header counts ─────────────────────────────────────────────────────────
+  document.getElementById('hTotal').textContent  = totAll;
+  document.getElementById('hNew').textContent    = totNew;
+  document.getElementById('hAlerts').textContent = totAlert;
+  document.getElementById('hSrc').textContent    = rssSources.length;
+  document.getElementById('hTgSrc').textContent  = TG_SOURCES.length;
+  document.getElementById('fc-all').textContent  = totAll+totTg;
+  document.getElementById('fc-new').textContent  = totNew;
+  document.getElementById('fc-alert').textContent= totAlert;
+  document.getElementById('fc-tg').textContent   = totTg;
+
+  // ── Sidebar topics ────────────────────────────────────────────────────────
+  const sbTopics = document.getElementById('sbTopics'); sbTopics.innerHTML='';
+  [{label:'🔴 Hacks',key:'hacks'},{label:'💰 Funding',key:'funding'}].forEach(t => {
+    const el = document.createElement('div');
+    el.className='topic-item'+(curTopic===t.key?' active':'');
+    el.textContent=t.label;
+    el.addEventListener('click',()=>setTopic(t.key,el));
+    sbTopics.appendChild(el);
+  });
+
+  // ── Sidebar RSS sources ───────────────────────────────────────────────────
+  const sbSrc = document.getElementById('sbSources'); sbSrc.innerHTML='';
+  rssSources.forEach((name, si) => {
+    const meta  = srcMeta(name);
+    const count = (bySource[name]||[]).length;
+    const item  = document.createElement('div'); item.className='src-item';
+    item.innerHTML=`
+      <div class="src-color" style="background:${meta.color}"></div>
+      <div class="src-info">
+        <div class="src-name">${name}</div>
+        <div class="src-cnt">${count} articles</div>
+      </div>
+      <div class="src-dot" style="background:${apiOnline?'var(--green)':isFetchingRSS?'var(--gold)':'var(--border2)'}"></div>`;
+    item.addEventListener('click',()=>{ const c=document.querySelectorAll('.feeds-grid .feed-card'); if(c[si]) c[si].scrollIntoView({behavior:'smooth',block:'start'}); });
+    sbSrc.appendChild(item);
+  });
+
+  // ── Sidebar TG sources ────────────────────────────────────────────────────
+  const sbTg = document.getElementById('sbTgSources'); sbTg.innerHTML='';
+  TG_SOURCES.forEach((src, si) => {
+    const count = (tgBySource[src.id]||[]).length;
+    const live  = !!tgLive[src.id];
+    const item  = document.createElement('div'); item.className='src-item';
+    item.innerHTML=`
+      <div class="src-color" style="background:${src.color}"></div>
+      <div class="src-info">
+        <div class="src-name">${src.emoji} ${src.name}</div>
+        <div class="src-cnt">${count?count+' posts':'loading…'}</div>
+      </div>
+      <div class="src-dot" style="background:${live?'var(--tg)':tgFetchingSet.has(src.id)?'var(--gold)':'var(--border2)'}"></div>`;
+    item.addEventListener('click',()=>{ const c=document.querySelectorAll('.tg-card'); if(c[si]) c[si].scrollIntoView({behavior:'smooth',block:'start'}); });
+    sbTg.appendChild(item);
+  });
+}
+
+// ── BUILD RSS CARD ────────────────────────────────────────────────────────────
+function buildRSSCard_(srcName, items, idx) {
+  const meta       = srcMeta(srcName);
+  const oneHourAgoISO = new Date(Date.now()-3_600_000).toISOString();
+
+  const card = document.createElement('div');
+  card.className='feed-card'; card.style.animationDelay=(idx*0.06)+'s';
+
+  // Head
+  const head=document.createElement('div'); head.className='card-head';
+  const cb=document.createElement('div'); cb.className='card-color'; cb.style.background=meta.color;
+  const fav=document.createElement('img'); fav.className='card-favicon';
+  fav.src=`https://www.google.com/s2/favicons?domain=${meta.domain}&sz=32`; fav.alt='';
+  fav.onerror=function(){this.style.display='none';};
+  const nm=document.createElement('span'); nm.className='card-name'; nm.textContent=srcName;
+  const mt=document.createElement('div'); mt.className='card-meta';
+  const pill=document.createElement('span');
+  pill.className='pill-type'+(apiOnline?' pill-sheets':''); pill.textContent=apiOnline?'SHEETS':'RSS';
+  const cnt=document.createElement('span'); cnt.className='card-cnt'; cnt.textContent=items.length;
+  mt.append(pill,cnt); head.append(cb,fav,nm,mt); card.appendChild(head);
+
+  // List
+  const list=document.createElement('div'); list.className='news-list-inner';
+  if (!items.length) {
+    const emp=document.createElement('div'); emp.className='feed-empty';
+    emp.textContent=isFetchingRSS?'⟳ Fetching from Sheets…':'No articles match current filter.';
+    list.appendChild(emp);
+  } else {
+    items.forEach(item => {
+      const isNew = item.pubDate > oneHourAgoISO;
+      const a=document.createElement('a'); a.className='news-item'+(isNew?' is-new':'');
+      a.href=item.link; a.target='_blank'; a.rel='noopener noreferrer';
+      const title=document.createElement('div'); title.className='ni-title'; title.textContent=item.title;
+      const time=document.createElement('div'); time.className='ni-time'; time.textContent=fmtTime(item.pubDate);
+      a.append(title);
+      if (item.description) {
+        const desc=document.createElement('div'); desc.className='ni-desc'; desc.textContent=item.description;
+        a.appendChild(desc);
+      }
+      a.appendChild(time);
+      list.appendChild(a);
+    });
+  }
+  card.appendChild(list);
+
+  // Foot
+  const foot=document.createElement('div'); foot.className='card-foot';
+  const upd=document.createElement('span'); upd.className='card-updated';
+  upd.textContent=lastFetchedAt?'Synced '+fmtTime(lastFetchedAt.toISOString()):'–';
+  const btns=document.createElement('div'); btns.className='card-foot-btns';
+  const rfBtn=document.createElement('button'); rfBtn.className='card-action-btn blue';
+  rfBtn.textContent='↻ Refresh'; rfBtn.addEventListener('click',loadFromAPI);
+  btns.append(rfBtn); foot.append(upd,btns); card.appendChild(foot);
+  return card;
+}
+
+// ── BUILD TELEGRAM CARD ───────────────────────────────────────────────────────
+function buildTGCard_(src, items, idx) {
+  const isFetching = tgFetchingSet.has(src.id);
+  const isLive     = !!tgLive[src.id];
+  const oneHourAgo = Date.now()-3_600_000;
+
+  const card=document.createElement('div');
+  card.className='feed-card tg-card'+(isFetching?' loading':'');
+  card.id='card-'+src.id;
+  card.style.animationDelay=(idx*0.06)+'s';
+
+  // Head
+  const head=document.createElement('div'); head.className='card-head';
+  const cb=document.createElement('div'); cb.className='card-color'; cb.style.background=src.color;
+  const tgIcon=document.createElement('div');
+  tgIcon.style.cssText='width:14px;height:14px;flex-shrink:0;display:flex;align-items:center';
+  tgIcon.innerHTML=`<svg viewBox="0 0 24 24" width="14" height="14" fill="${src.color}"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>`;
+  const nm=document.createElement('span'); nm.className='card-name'; nm.textContent=src.name;
+  const mt=document.createElement('div'); mt.className='card-meta';
+  const pill=document.createElement('span'); pill.id='pill-'+src.id;
+  if(isFetching){pill.className='pill-type pill-loading';pill.textContent='FETCHING';}
+  else{pill.className='pill-type pill-tg'+(isLive?' pill-live':'');pill.textContent=isLive?'LIVE':'TG';}
+  const cnt=document.createElement('span'); cnt.className='card-cnt'; cnt.textContent=items.length;
+  mt.append(pill,cnt); head.append(cb,tgIcon,nm,mt); card.appendChild(head);
+
+  // TG info bar
+  const infoBar=document.createElement('div'); infoBar.className='tg-info-bar';
+  infoBar.innerHTML=`✈ <a href="https://t.me/${src.handle}" target="_blank" rel="noopener">@${src.handle}</a> · open in Telegram`;
+  card.appendChild(infoBar);
+
+  // List
+  const list=document.createElement('div'); list.className='news-list-inner';
+  if (!items.length) {
+    const emp=document.createElement('div'); emp.className='feed-empty';
+    emp.innerHTML=isFetching
+      ?'⟳ Fetching via proxy…'
+      :`Posts loading…<br><small style="font-size:9px">If blocked, open <a href="${src.url}" target="_blank" style="color:var(--tg)">channel</a> directly</small>`;
+    list.appendChild(emp);
+  } else {
+    items.forEach(item => {
+      const isNew=item.ts>oneHourAgo;
+      const a=document.createElement('a');
+      a.className='news-item tg-msg'+(isNew?' is-new':'');
+      a.href=item.url; a.target='_blank'; a.rel='noopener noreferrer';
+      const title=document.createElement('div'); title.className='ni-title'; title.textContent=item.title;
+      const time=document.createElement('div'); time.className='ni-time'; time.textContent=fmtTime(item.ts);
+      a.append(title,time);
+      if (item.views) {
+        const views=document.createElement('div'); views.className='tg-views';
+        views.textContent='👁 '+item.views; a.appendChild(views);
+      }
+      list.appendChild(a);
+    });
+  }
+  card.appendChild(list);
+
+  // Foot
+  const foot=document.createElement('div'); foot.className='card-foot';
+  const upd=document.createElement('span'); upd.className='card-updated';
+  upd.textContent=tgUpdatedAt[src.id]?'Updated '+fmtTime(tgUpdatedAt[src.id]):'Fetching…';
+  const btns=document.createElement('div'); btns.className='card-foot-btns';
+  const rfBtn=document.createElement('button'); rfBtn.className='card-action-btn tgbtn';
+  rfBtn.id='rfbtn-'+src.id; rfBtn.textContent=isFetching?'⟳ …':'↻ Refresh'; rfBtn.disabled=isFetching;
+  rfBtn.addEventListener('click',()=>fetchTelegram(src));
+  const extLink=document.createElement('a'); extLink.className='card-action-btn tgbtn';
+  extLink.href=`https://t.me/${src.handle}`; extLink.target='_blank'; extLink.rel='noopener';
+  extLink.textContent='✈ Open'; extLink.style.textDecoration='underline';
+  btns.append(rfBtn,extLink); foot.append(upd,btns); card.appendChild(foot);
+  return card;
+}
+
+// ── SKELETON CARD ─────────────────────────────────────────────────────────────
+function buildSkeletonCard_(idx) {
+  const card=document.createElement('div'); card.className='feed-card loading';
+  card.style.animationDelay=(idx*0.06)+'s';
+  card.innerHTML=`
+    <div class="card-head" style="gap:8px">
+      <div class="card-color skeleton"></div>
+      <div class="skeleton" style="width:14px;height:14px;border-radius:2px"></div>
+      <div class="skeleton" style="flex:1;height:14px;border-radius:3px"></div>
+    </div>
+    <div class="news-list-inner">
+      ${Array(5).fill(0).map(()=>`
+        <div style="padding:10px 13px;border-bottom:1px solid var(--bg2)">
+          <div class="skeleton" style="height:12px;width:90%;border-radius:3px;margin-bottom:5px"></div>
+          <div class="skeleton" style="height:11px;width:70%;border-radius:3px;margin-bottom:5px"></div>
+          <div class="skeleton" style="height:10px;width:40%;border-radius:3px"></div>
+        </div>`).join('')}
+    </div>`;
+  return card;
+}
+
+// ── CONTROLS ──────────────────────────────────────────────────────────────────
+function setFilter(f,btn){
+  curFilter=f; curTopic=null;
+  document.querySelectorAll('.filt-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); renderAll();
+}
+function setView(v){
+  curView=v;
+  document.getElementById('vGrid').classList.toggle('active',v==='grid');
+  document.getElementById('vList').classList.toggle('active',v==='list');
+  renderAll();
+}
+function setTopic(key,el){
+  curTopic=curTopic===key?null:key; curFilter='all';
+  document.querySelectorAll('.filt-btn,.topic-item').forEach(b=>b.classList.remove('active'));
+  if(curTopic){el.classList.add('active');}else{document.getElementById('fAll').classList.add('active');}
+  renderAll();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+renderAll(); // show skeleton grid immediately
+
+// Start Telegram fetches right away (client-side, don't wait for config)
+TG_SOURCES.forEach(s => fetchTelegram(s));
+
+// Start RSS from Sheets API if URL is already configured
+if (getApiUrl()) {
+  loadFromAPI();
+} else {
+  setBanner('error','⚙ First-time setup: click <a onclick="openConfig()">⚙ Config</a> and paste your Apps Script Web App URL.');
+}
+</script>
+</body>
+</html>
