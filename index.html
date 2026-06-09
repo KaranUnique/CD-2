@@ -380,6 +380,37 @@ const SOURCE_META = {
   'TechFlow'       : { color:'#8E44AD', domain:'techflowpost.com'   },
 };
 
+// Domain → source name map for fixing dirty rows where source was stored as a URL
+const DOMAIN_TO_SOURCE = {
+  'cointelegraph.com' : 'CoinTelegraph',
+  'coindesk.com'      : 'CoinDesk',
+  'decrypt.co'        : 'Decrypt',
+  'cryptobriefing.com': 'Crypto Briefing',
+  'news.bitcoin.com'  : 'Bitcoin News',
+  'panewslab.com'     : 'PANews',
+  'chaincatcher.com'  : 'ChainCatcher',
+  'techflowpost.com'  : 'TechFlow',
+};
+
+function fixArticleSource(article) {
+  if (!article.source || /^https?:\/\//i.test(article.source) || article.source === 'Unknown') {
+    // Check for embedded [SRC:name] tag in description
+    const srcTag = (article.description || '').match(/\[SRC:([^\]]+)\]/);
+    if (srcTag) { article.source = srcTag[1]; return article; }
+
+    // Try domain lookup from link
+    try {
+      const hostname = new URL(article.link).hostname.replace(/^www\./, '');
+      for (const [domain, name] of Object.entries(DOMAIN_TO_SOURCE)) {
+        if (hostname.includes(domain)) { article.source = name; return article; }
+      }
+    } catch (_) {}
+
+    article.source = 'Unknown';
+  }
+  return article;
+}
+
 // ── TELEGRAM SOURCES — 13 channels ───────────────────────────────────────────
 const TG_SOURCES = [
   {id:'tg_wue', name:'Wu Blockchain EN', handle:'wublockchainenglish',         url:'https://t.me/s/wublockchainenglish',         color:'#0088CC', emoji:'📡'},
@@ -428,7 +459,7 @@ const STOP_WORDS = new Set([
 ]);
 
 // ── CONFIGURATION ─────────────────────────────────────────────────────────────
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwah4yom6nbaArcSOjjebF9Oz5ZrmxsWL-iDB9Q57-S2AtLFcree9j7SN43dW4ZlF_ACQ/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfGPFH-oIIUVDUBWapBHuA9qtiA174LyCY3gXvHNKeRL01lp37Vyvc-Ts_5xwbsO-nLQ/exec';
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let allArticles   = [];
@@ -693,7 +724,9 @@ function isGarbage(text) {
   const t = text.trim();
   if (/^https?:\/\//i.test(t)) return true;
   if (/^\[.*\]\(.*\)$/.test(t)) return true;
-  if (t.replace(/[\W\d]/g,'').length < 4) return true;
+  // Strip punctuation/digits but keep CJK and Latin letters
+  const letters = t.replace(/[\d\s!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/g, '');
+  if (letters.length < 4) return true;
   return false;
 }
 
@@ -710,7 +743,7 @@ async function loadFromAPI() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if (json.status !== 'ok') throw new Error(json.message || 'API error');
-    allArticles   = json.articles || [];
+    allArticles   = (json.articles || []).map(fixArticleSource);
     lastFetchedAt = new Date();
     apiOnline     = true;
     setBanner('ok', `✓ ${allArticles.length} RSS articles from Google Sheets · ${lastFetchedAt.toLocaleTimeString()}`);
