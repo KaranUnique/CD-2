@@ -459,7 +459,7 @@ const STOP_WORDS = new Set([
 ]);
 
 // ── CONFIGURATION ─────────────────────────────────────────────────────────────
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfGPFH-oIIUVDUBWapBHuA9qtiA174LyCY3gXvHNKeRL01lp37Vyvc-Ts_5xwbsO-nLQ/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxd6Us2ilYe0TPMw4TrumrohZxZ2XKDvJ33jUupoh71gJLVHXPstj1GSN_NyliJAuviXQ/exec';
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let allArticles   = [];
@@ -743,7 +743,7 @@ async function loadFromAPI() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if (json.status !== 'ok') throw new Error(json.message || 'API error');
-    allArticles   = (json.articles || []).map(fixArticleSource);
+    allArticles   = (json.articles || []).map(fixArticleSource).filter(a => !/[\u3000-\u9fff\uac00-\ud7af\uf900-\ufaff]/.test(a.title));
     lastFetchedAt = new Date();
     apiOnline     = true;
     setBanner('ok', `✓ ${allArticles.length} RSS articles from Google Sheets · ${lastFetchedAt.toLocaleTimeString()}`);

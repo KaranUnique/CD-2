@@ -116,6 +116,10 @@ function doGet(e) {
     // Filter out rows with unknown/unresolved sources
     results = results.filter(r => r.source && r.source !== 'Unknown' && !/^https?:\/\//i.test(r.source));
 
+    // Filter out articles with Chinese/Japanese/Korean characters in the title
+    const CJK_RE = /[\u3000-\u9fff\uac00-\ud7af\uf900-\ufaff]/;
+    results = results.filter(r => !CJK_RE.test(r.title));
+
     if (params.source) {
       const src = params.source.toLowerCase();
       results = results.filter(r => r.source.toLowerCase().includes(src));
