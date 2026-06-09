@@ -375,18 +375,26 @@ const SOURCE_META = {
   'Decrypt'        : { color:'#1A7A42', domain:'decrypt.co'         },
   'Crypto Briefing': { color:'#B8880A', domain:'cryptobriefing.com' },
   'Bitcoin News'   : { color:'#8A2A8A', domain:'news.bitcoin.com'   },
+  'PANews'         : { color:'#E67E22', domain:'panewslab.com'      },
+  'ChainCatcher'   : { color:'#1ABC9C', domain:'chaincatcher.com'   },
+  'TechFlow'       : { color:'#8E44AD', domain:'techflowpost.com'   },
 };
 
+// ── TELEGRAM SOURCES — 13 channels ───────────────────────────────────────────
 const TG_SOURCES = [
-  {id:'tg_wue', name:'Wu Blockchain EN', handle:'wublockchainenglish',       url:'https://t.me/s/wublockchainenglish',       color:'#0088CC', emoji:'📡'},
-  {id:'tg_cmc', name:'CoinMarketCap',    handle:'CoinMarketCapAnnouncements',url:'https://t.me/s/CoinMarketCapAnnouncements',color:'#3861FB', emoji:'📊'},
-  {id:'tg_cdf', name:'CryptoDiffer',     handle:'cryptodiffer',              url:'https://t.me/s/cryptodiffer',              color:'#8E44AD', emoji:'🔍'},
-  {id:'tg_pnx', name:'PNXGRP',          handle:'pnxgrp',                    url:'https://t.me/s/pnxgrp',                    color:'#16A085', emoji:'💹'},
-  {id:'tg_cdp', name:'CryptoDep',       handle:'cryptodep',                 url:'https://t.me/s/cryptodep',                 color:'#2C3E50', emoji:'📈'},
-  {id:'tg_wg',  name:'Watcher Guru',    handle:'WatcherGuru',               url:'https://t.me/s/WatcherGuru',               color:'#1A7A42', emoji:'👁'},
-  {id:'tg_ori', name:'Oriole Insights', handle:'OrioleInsights',            url:'https://t.me/s/OrioleInsights',            color:'#C0392B', emoji:'🦜'},
-  {id:'tg_icd', name:'ICO Drops',       handle:'icodrops',                  url:'https://t.me/s/icodrops',                  color:'#D4AC0D', emoji:'💎'},
-  {id:'tg_alt', name:'Altcoin Alerts',  handle:'Altcoin_Alerts',            url:'https://t.me/s/Altcoin_Alerts',            color:'#E74C3C', emoji:'🚨'},
+  {id:'tg_wue', name:'Wu Blockchain EN', handle:'wublockchainenglish',         url:'https://t.me/s/wublockchainenglish',         color:'#0088CC', emoji:'📡'},
+  {id:'tg_cmc', name:'CoinMarketCap',    handle:'CoinMarketCapAnnouncements',  url:'https://t.me/s/CoinMarketCapAnnouncements',  color:'#3861FB', emoji:'📊'},
+  {id:'tg_cdf', name:'CryptoDiffer',     handle:'cryptodiffer',                url:'https://t.me/s/cryptodiffer',                color:'#8E44AD', emoji:'🔍'},
+  {id:'tg_pnx', name:'PNXGRP',          handle:'pnxgrp',                      url:'https://t.me/s/pnxgrp',                      color:'#16A085', emoji:'💹'},
+  {id:'tg_cdp', name:'CryptoDep',       handle:'cryptodep',                   url:'https://t.me/s/cryptodep',                   color:'#2C3E50', emoji:'📈'},
+  {id:'tg_wg',  name:'Watcher Guru',    handle:'WatcherGuru',                 url:'https://t.me/s/WatcherGuru',                 color:'#1A7A42', emoji:'👁'},
+  {id:'tg_ori', name:'Oriole Insights', handle:'OrioleInsights',              url:'https://t.me/s/OrioleInsights',              color:'#C0392B', emoji:'🦜'},
+  {id:'tg_icd', name:'ICO Drops',       handle:'icodrops',                    url:'https://t.me/s/icodrops',                    color:'#D4AC0D', emoji:'💎'},
+  {id:'tg_alt', name:'Altcoin Alerts',  handle:'Altcoin_Alerts',              url:'https://t.me/s/Altcoin_Alerts',              color:'#E74C3C', emoji:'🚨'},
+  {id:'tg_pan', name:'PA News',         handle:'ChannelPANews',               url:'https://t.me/s/ChannelPANews',               color:'#F39C12', emoji:'📰'},
+  {id:'tg_tbb', name:'The BlockBeats',  handle:'theblockbeats',               url:'https://t.me/s/theblockbeats',               color:'#27AE60', emoji:'🎵'},
+  {id:'tg_tfd', name:'TechFlow Daily',  handle:'TechFlowDaily',               url:'https://t.me/s/TechFlowDaily',               color:'#2980B9', emoji:'⚡'},
+  {id:'tg_bci', name:'BlockCast',       handle:'blockcastit',                 url:'https://t.me/s/blockcastit',                 color:'#6C3483', emoji:'📻'},
 ];
 
 const ALL_SOURCES_META = {
@@ -395,7 +403,9 @@ const ALL_SOURCES_META = {
   'CryptoDiffer': {color:'#8E44AD'}, 'PNXGRP': {color:'#16A085'},
   'CryptoDep': {color:'#2C3E50'}, 'Watcher Guru': {color:'#1A7A42'},
   'Oriole Insights': {color:'#C0392B'}, 'ICO Drops': {color:'#D4AC0D'},
-  'Altcoin Alerts': {color:'#E74C3C'},
+  'Altcoin Alerts': {color:'#E74C3C'}, 'PA News': {color:'#F39C12'},
+  'The BlockBeats': {color:'#27AE60'}, 'TechFlow Daily': {color:'#2980B9'},
+  'BlockCast': {color:'#6C3483'},
 };
 
 const ALERT_KW = ['hack','exploit','sec','arrest','crash','breach','seized','bankrupt','rug','fraud'];
@@ -492,7 +502,6 @@ function clusterArticles(articles, minWords) {
 }
 
 function getAllArticlesForTrending() {
-  // Merge RSS + TG into unified list
   const rss = allArticles.map(a => ({
     title: a.title || '',
     source: a.source || 'Unknown',
@@ -522,7 +531,6 @@ function renderTrending() {
   const topWords  = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 40);
   const maxFreq   = topWords[0]?.[1] || 1;
 
-  // Stats
   const covBySource = {};
   articles.forEach(a => { covBySource[a.source] = (covBySource[a.source] || 0) + 1; });
   document.getElementById('hTrend').textContent = clusters.length;
@@ -533,7 +541,6 @@ function renderTrending() {
     <div class="trend-stat"><div class="trend-stat-val">${clusters[0] ? clusters[0].articles.length : 0}</div><div class="trend-stat-lbl">top story coverage</div></div>
   `;
 
-  // Word cloud
   if (topWords.length) {
     const wc = document.getElementById('wordcloudPanel');
     const words = topWords.map(([w, f]) => {
@@ -556,7 +563,6 @@ function renderTrending() {
     document.getElementById('wordcloudPanel').innerHTML = '';
   }
 
-  // Sidebar keywords
   const sbKw = document.getElementById('sbKeywords');
   sbKw.innerHTML = topWords.slice(0, 12).map(([w, f]) =>
     `<div style="display:flex;justify-content:space-between;padding:4px 10px;font-size:11px">
@@ -565,7 +571,6 @@ function renderTrending() {
     </div>`
   ).join('');
 
-  // Sidebar coverage
   const sbCov = document.getElementById('sbCoverage');
   const sortedSrc = Object.entries(covBySource).sort((a, b) => b[1] - a[1]).slice(0, 8);
   sbCov.innerHTML = sortedSrc.map(([name, cnt]) =>
@@ -575,7 +580,6 @@ function renderTrending() {
     </div>`
   ).join('');
 
-  // Story cards
   const container = document.getElementById('trendingContent');
   if (!clusters.length) {
     container.innerHTML = `<div class="trend-empty">
@@ -669,7 +673,7 @@ function switchTab(tab) {
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 function getApiUrl()     { return APPS_SCRIPT_URL; }
-function saveApiUrl(u)   { /* URL is hardcoded, no longer saved to localStorage */ }
+function saveApiUrl(u)   { /* URL is hardcoded */ }
 function getInterval()   { return parseInt(localStorage.getItem('cd_interval') || '5', 10); }
 function saveInterval(v) { localStorage.setItem('cd_interval', String(v)); }
 
@@ -1048,10 +1052,16 @@ function buildTGCard_(src, items, idx) {
   const rfBtn=document.createElement('button'); rfBtn.className='card-action-btn tgbtn';
   rfBtn.id='rfbtn-'+src.id; rfBtn.textContent=isFetching?'⟳ …':'↻ Refresh'; rfBtn.disabled=isFetching;
   rfBtn.addEventListener('click',()=>fetchTelegram(src));
+  // Web preview link
   const extLink=document.createElement('a'); extLink.className='card-action-btn tgbtn';
   extLink.href=`https://t.me/${src.handle}`; extLink.target='_blank'; extLink.rel='noopener';
-  extLink.textContent='✈ Open'; extLink.style.textDecoration='underline';
-  btns.append(rfBtn,extLink); foot.append(upd,btns); card.appendChild(foot);
+  extLink.textContent='✈ Web'; extLink.style.textDecoration='underline';
+  // Deep-link to open in Telegram app directly
+  const appLink=document.createElement('a'); appLink.className='card-action-btn tgbtn';
+  appLink.href=`tg://resolve?domain=${src.handle}`;
+  appLink.textContent='📲 App'; appLink.style.textDecoration='underline';
+  appLink.title='Open channel in Telegram app';
+  btns.append(rfBtn, extLink, appLink); foot.append(upd, btns); card.appendChild(foot);
   return card;
 }
 

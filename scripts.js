@@ -3,20 +3,17 @@
  *  CryptoDesk — Google Apps Script Backend
  *  File: Code.gs
  *
- *  Responsibilities:
- *    1. fetchAndStoreRSS()  — Collect RSS feeds → Google Sheet
- *    2. doGet(e)            — Web API endpoint → JSON for frontend
- *    3. setupTrigger()      — One-time trigger installation helper
+ *  Columns: S.No | Title | Description | Link | Source | Published Date
  * ============================================================
  */
 
 // ── CONFIGURATION ─────────────────────────────────────────────────────────────
 
 const CONFIG = {
-  SHEET_NAME       : 'News',
-  TRIGGER_INTERVAL : 30,          // minutes between auto-syncs (set in setupTrigger)
-  MAX_ITEMS_PER_FEED: 50,         // max articles to pull per feed per run
-  DEFAULT_LIMIT    : 200,         // default API response limit
+  SHEET_NAME        : 'News',
+  TRIGGER_INTERVAL  : 30,
+  MAX_ITEMS_PER_FEED: 50,
+  DEFAULT_LIMIT     : 200,
 
   RSS_SOURCES: [
     { id: 'ct',  name: 'CoinTelegraph',   url: 'https://cointelegraph.com/rss'                   },
@@ -24,40 +21,39 @@ const CONFIG = {
     { id: 'dc',  name: 'Decrypt',         url: 'https://decrypt.co/feed'                         },
     { id: 'cb',  name: 'Crypto Briefing', url: 'https://cryptobriefing.com/feed/'                },
     { id: 'bm',  name: 'Bitcoin News',    url: 'https://news.bitcoin.com/feed/'                  },
+    { id: 'pa',  name: 'PANews',          url: 'https://www.panewslab.com/rss'                   },
+    { id: 'cc',  name: 'ChainCatcher',    url: 'https://www.chaincatcher.com/rss'                },
+    { id: 'tf',  name: 'TechFlow',        url: 'https://www.techflowpost.com/rss'                },
   ],
 };
 
 // ── SHEET COLUMN MAP (0-indexed) ──────────────────────────────────────────────
 
 const COL = {
-  GUID        : 0,
-  TITLE       : 1,
-  DESCRIPTION : 2,
-  SOURCE      : 3,
-  LINK        : 4,
-  PUB_DATE    : 5,
-  FETCH_TS    : 6,
+  SNO         : 0,   // A
+  TITLE       : 1,   // B
+  DESCRIPTION : 2,   // C
+  LINK        : 3,   // D
+  SOURCE      : 4,   // E
+  PUB_DATE    : 5,   // F
 };
 
-const HEADERS = ['GUID', 'Title', 'Description', 'Source', 'Link', 'Published Date', 'Fetch Timestamp'];
+const HEADERS = ['S.No', 'Title', 'Description', 'Link', 'Source', 'Published Date'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  1.  RSS COLLECTOR  —  fetchAndStoreRSS()
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Main entry point.
- * Fetches all configured RSS feeds and appends only new articles to the Sheet.
- * Safe to run manually or via time-driven trigger.
- */
 function fetchAndStoreRSS() {
-  const sheet     = getOrCreateSheet_();
-  const existingGuids = loadExistingGuids_(sheet);   // Set<string>
-  const now       = new Date().toISOString();
-  const rowsToAdd = [];
-  const errors    = [];
+  const sheet        = getOrCreateSheet_();
+  const existingLinks = loadExistingLinks_(sheet);   // Set<string> — dedupe by link
+  const rowsToAdd    = [];
+  const errors       = [];
 
-  Logger.log('▶ Starting RSS sync. Existing records: %s', existingGuids.size);
+  // Current last row to calculate starting S.No
+  let nextSNo = sheet.getLastRow();   // header is row 1, so lastRow = count of data rows + 1
+
+  Logger.log('▶ Starting RSS sync. Existing records: %s', existingLinks.size);
 
   CONFIG.RSS_SOURCES.forEach(src => {
     try {
@@ -66,16 +62,17 @@ function fetchAndStoreRSS() {
       let added   = 0;
 
       items.forEach(item => {
-        if (existingGuids.has(item.guid)) return;   // already in sheet
-        existingGuids.add(item.guid);               // prevent same-run dupes
+        const key = item.link || item.title;
+        if (existingLinks.has(key)) return;
+        existingLinks.add(key);
+        nextSNo++;
         rowsToAdd.push([
-          item.guid,
+          nextSNo,
           item.title,
           item.description,
-          item.source,
           item.link,
+          item.source,
           item.pubDate,
-          now,
         ]);
         added++;
       });
@@ -87,18 +84,17 @@ function fetchAndStoreRSS() {
     }
   });
 
-  // Batch-append all new rows in a single sheet operation
   if (rowsToAdd.length > 0) {
     const lastRow = sheet.getLastRow();
     sheet.getRange(lastRow + 1, 1, rowsToAdd.length, HEADERS.length)
          .setValues(rowsToAdd);
-    Logger.log('✔ Appended %s new rows to sheet.', rowsToAdd.length);
+    Logger.log('✔ Appended %s new rows.', rowsToAdd.length);
   } else {
-    Logger.log('✔ No new articles found this run.');
+    Logger.log('✔ No new articles this run.');
   }
 
   if (errors.length) {
-    Logger.log('⚠ Errors encountered: %s', JSON.stringify(errors));
+    Logger.log('⚠ Errors: %s', JSON.stringify(errors));
   }
 
   return { inserted: rowsToAdd.length, errors };
@@ -108,16 +104,6 @@ function fetchAndStoreRSS() {
 //  2.  WEB API  —  doGet(e)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * HTTP GET handler — deployed as a Web App.
- *
- * Query parameters (all optional):
- *   ?limit=50          max rows returned         (default: CONFIG.DEFAULT_LIMIT)
- *   ?source=CoinDesk   filter by source name      (case-insensitive, partial match)
- *   ?search=bitcoin    full-text search on title  (case-insensitive)
- *
- * Response: JSON array sorted by Published Date descending.
- */
 function doGet(e) {
   const params = e && e.parameter ? e.parameter : {};
 
@@ -125,7 +111,6 @@ function doGet(e) {
     const sheet = getOrCreateSheet_();
     const data  = readSheetData_(sheet);
 
-    // ── Filters ───────────────────────────────────────────────────────────────
     let results = data;
 
     if (params.source) {
@@ -141,17 +126,16 @@ function doGet(e) {
       );
     }
 
-    // ── Sort: newest first ────────────────────────────────────────────────────
+    // Sort newest first
     results.sort((a, b) => {
       const da = a.pubDate ? new Date(a.pubDate).getTime() : 0;
       const db = b.pubDate ? new Date(b.pubDate).getTime() : 0;
       return db - da;
     });
 
-    // ── Limit ─────────────────────────────────────────────────────────────────
     const limit = Math.min(
       parseInt(params.limit, 10) || CONFIG.DEFAULT_LIMIT,
-      1000   // hard cap — protect against abuse
+      1000
     );
     results = results.slice(0, limit);
 
@@ -172,21 +156,10 @@ function doGet(e) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  3.  TRIGGER SETUP  —  run once from the Script Editor
+//  3.  TRIGGER SETUP
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Call this function ONCE from the Apps Script editor to install a
- * time-driven trigger.  It removes any existing triggers first so
- * it's idempotent.
- *
- * How to run:
- *   1. Open script editor → select "setupTrigger" from the function dropdown
- *   2. Click ▶ Run
- *   3. Accept any permission prompts
- */
 function setupTrigger() {
-  // Remove existing triggers for fetchAndStoreRSS to avoid duplicates
   ScriptApp.getProjectTriggers().forEach(t => {
     if (t.getHandlerFunction() === 'fetchAndStoreRSS') {
       ScriptApp.deleteTrigger(t);
@@ -205,10 +178,6 @@ function setupTrigger() {
 //  PRIVATE HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Returns the "News" sheet, creating it (with headers) if it doesn't exist.
- * @returns {GoogleAppsScript.Spreadsheet.Sheet}
- */
 function getOrCreateSheet_() {
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
   let   sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
@@ -217,23 +186,21 @@ function getOrCreateSheet_() {
     sheet = ss.insertSheet(CONFIG.SHEET_NAME);
     sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
 
-    // Style the header row
     const headerRange = sheet.getRange(1, 1, 1, HEADERS.length);
     headerRange.setFontWeight('bold')
                .setBackground('#1a1a2e')
-               .setFontColor('#ffffff');
+               .setFontColor('#ffffff')
+               .setHorizontalAlignment('center');
 
-    // Freeze header row
     sheet.setFrozenRows(1);
 
-    // Set column widths
-    sheet.setColumnWidth(1, 240);  // GUID
+    // Column widths
+    sheet.setColumnWidth(1, 60);   // S.No
     sheet.setColumnWidth(2, 340);  // Title
     sheet.setColumnWidth(3, 400);  // Description
-    sheet.setColumnWidth(4, 140);  // Source
-    sheet.setColumnWidth(5, 260);  // Link
+    sheet.setColumnWidth(4, 260);  // Link
+    sheet.setColumnWidth(5, 140);  // Source
     sheet.setColumnWidth(6, 180);  // Published Date
-    sheet.setColumnWidth(7, 180);  // Fetch Timestamp
 
     Logger.log('Created new sheet: %s', CONFIG.SHEET_NAME);
   }
@@ -242,24 +209,16 @@ function getOrCreateSheet_() {
 }
 
 /**
- * Loads all existing GUIDs from the sheet into a Set for O(1) lookup.
- * Only reads the GUID column — minimises data transfer.
- * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
- * @returns {Set<string>}
+ * Load existing article links for deduplication (replaces GUID-based check).
  */
-function loadExistingGuids_(sheet) {
+function loadExistingLinks_(sheet) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return new Set();
 
-  const guids = sheet.getRange(2, COL.GUID + 1, lastRow - 1, 1).getValues();
-  return new Set(guids.flat().filter(Boolean).map(String));
+  const links = sheet.getRange(2, COL.LINK + 1, lastRow - 1, 1).getValues();
+  return new Set(links.flat().filter(Boolean).map(String));
 }
 
-/**
- * Reads ALL data rows from the sheet and returns an array of article objects.
- * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
- * @returns {Array<Object>}
- */
 function readSheetData_(sheet) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
@@ -267,23 +226,17 @@ function readSheetData_(sheet) {
   const values = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
 
   return values
-    .filter(row => row[COL.GUID])   // skip blank rows
+    .filter(row => row[COL.TITLE])   // skip blank rows
     .map(row => ({
-      guid       : String(row[COL.GUID]        || ''),
+      sno        : row[COL.SNO]         || '',
       title      : String(row[COL.TITLE]       || ''),
       description: String(row[COL.DESCRIPTION] || ''),
-      source     : String(row[COL.SOURCE]      || ''),
       link       : String(row[COL.LINK]        || ''),
+      source     : String(row[COL.SOURCE]      || ''),
       pubDate    : row[COL.PUB_DATE] ? new Date(row[COL.PUB_DATE]).toISOString() : '',
-      fetchTs    : row[COL.FETCH_TS] ? new Date(row[COL.FETCH_TS]).toISOString() : '',
     }));
 }
 
-/**
- * Fetches raw XML from an RSS feed URL.
- * @param {string} url
- * @returns {string} raw XML text
- */
 function fetchFeed_(url) {
   const options = {
     muteHttpExceptions: true,
@@ -304,13 +257,6 @@ function fetchFeed_(url) {
   return response.getContentText();
 }
 
-/**
- * Parses an RSS XML string into an array of article objects.
- * Handles RSS 2.0 and Atom feeds.
- * @param {string} xmlText
- * @param {string} sourceName
- * @returns {Array<{guid, title, description, source, link, pubDate}>}
- */
 function parseRSS_(xmlText, sourceName) {
   let doc;
   try {
@@ -319,67 +265,47 @@ function parseRSS_(xmlText, sourceName) {
     throw new Error(`XML parse failed: ${e.message}`);
   }
 
-  const root    = doc.getRootElement();
-  const ns      = root.getNamespace();
-  const dcNs    = XmlService.getNamespace('dc', 'http://purl.org/dc/elements/1.1/');
+  const root      = doc.getRootElement();
+  const ns        = root.getNamespace();
+  const dcNs      = XmlService.getNamespace('dc', 'http://purl.org/dc/elements/1.1/');
   const contentNs = XmlService.getNamespace('content', 'http://purl.org/rss/1.0/modules/content/');
-  const isAtom  = root.getName() === 'feed';
-
-  const items = [];
+  const isAtom    = root.getName() === 'feed';
+  const items     = [];
 
   if (isAtom) {
-    // ── Atom feed ──────────────────────────────────────────────────────────
     root.getChildren('entry', ns).slice(0, CONFIG.MAX_ITEMS_PER_FEED).forEach(entry => {
       const getText = tag => safeGetText_(entry, tag, ns);
-
       const idEl   = entry.getChild('id', ns);
-      const guid   = idEl ? idEl.getText().trim() : '';
-
       const linkEl = entry.getChild('link', ns);
       const link   = linkEl ? (linkEl.getAttributeValue('href') || '') : '';
-
       const title  = getText('title');
-
       const summaryEl  = entry.getChild('summary', ns);
       const contentEl  = entry.getChild('content', ns);
       const description = (summaryEl || contentEl)
-        ? stripHtml_((summaryEl || contentEl).getText())
-        : '';
-
+        ? stripHtml_((summaryEl || contentEl).getText()) : '';
       const pubDate = getText('published') || getText('updated');
-
       if (!title && !link) return;
-
       items.push({
-        guid       : guid || link,
         title      : title || 'Untitled',
         description: description.substring(0, 500),
+        link       : link || (idEl ? idEl.getText().trim() : ''),
         source     : sourceName,
-        link       : link || guid,
         pubDate    : pubDate ? new Date(pubDate).toISOString() : '',
       });
     });
 
   } else {
-    // ── RSS 2.0 feed ───────────────────────────────────────────────────────
     const channel = root.getChild('channel') || root;
     channel.getChildren('item').slice(0, CONFIG.MAX_ITEMS_PER_FEED).forEach(item => {
       const getText = tag => safeGetText_(item, tag, null);
-
-      const title       = getText('title');
-      const link        = getText('link') || getText('guid');
-      const guidEl      = item.getChild('guid');
-      const guid        = guidEl ? guidEl.getText().trim() : link;
-
-      // Description: prefer content:encoded → description
+      const title   = getText('title');
+      const link    = getText('link') || getText('guid');
       let description = '';
       try {
-        const contentEncoded = item.getChild('encoded', contentNs);
-        if (contentEncoded) description = stripHtml_(contentEncoded.getText());
+        const ce = item.getChild('encoded', contentNs);
+        if (ce) description = stripHtml_(ce.getText());
       } catch(_) {}
       if (!description) description = stripHtml_(getText('description'));
-
-      // Published date: try dc:date, pubDate, date
       let pubDate = getText('pubDate');
       if (!pubDate) {
         try {
@@ -387,15 +313,12 @@ function parseRSS_(xmlText, sourceName) {
           if (dcDate) pubDate = dcDate.getText().trim();
         } catch(_) {}
       }
-
       if (!title && !link) return;
-
       items.push({
-        guid       : guid || link,
         title      : title || 'Untitled',
         description: description.substring(0, 500),
+        link       : link,
         source     : sourceName,
-        link       : link || guid,
         pubDate    : pubDate ? safeParseDate_(pubDate) : '',
       });
     });
@@ -404,58 +327,31 @@ function parseRSS_(xmlText, sourceName) {
   return items;
 }
 
-/**
- * Safely get text content of a child element.
- */
 function safeGetText_(parent, tag, ns) {
   try {
     const child = ns ? parent.getChild(tag, ns) : parent.getChild(tag);
     return child ? child.getText().trim() : '';
-  } catch (_) {
-    return '';
-  }
+  } catch (_) { return ''; }
 }
 
-/**
- * Parse date string safely — returns ISO string or empty string.
- */
 function safeParseDate_(str) {
   try {
     const d = new Date(str);
     return isNaN(d.getTime()) ? '' : d.toISOString();
-  } catch (_) {
-    return '';
-  }
+  } catch (_) { return ''; }
 }
 
-/**
- * Strip HTML tags and decode common entities from a string.
- * @param {string} html
- * @returns {string}
- */
 function stripHtml_(html) {
   if (!html) return '';
   return html
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&amp;/g,   '&')
-    .replace(/&lt;/g,    '<')
-    .replace(/&gt;/g,    '>')
-    .replace(/&quot;/g,  '"')
-    .replace(/&#39;/g,   "'")
-    .replace(/&nbsp;/g,  ' ')
-    .replace(/\s+/g,     ' ')
-    .trim();
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ').trim();
 }
 
-/**
- * Build a JSON ContentService response with CORS headers.
- * @param {Object} payload
- * @param {number} [status]
- * @returns {GoogleAppsScript.Content.TextOutput}
- */
 function buildResponse_(payload, status) {
-  const output = ContentService
+  return ContentService
     .createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
-  return output;
 }
